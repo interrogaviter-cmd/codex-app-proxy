@@ -100,7 +100,7 @@ void Logger::AppendToFile(const std::wstring& entry) {
   if (log_path_.empty()) {
     return;
   }
-  std::wofstream file(log_path_, std::ios::app);
+  std::wofstream file(std::filesystem::path(log_path_), std::ios::app);
   if (file) {
     file << entry << L"\n";
   }

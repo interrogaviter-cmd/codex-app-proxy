@@ -2,6 +2,8 @@
 
 #include "common/string_utils.h"
 
+#include <windows.h>
+
 namespace codex_proxy {
 namespace {
 
@@ -22,6 +24,20 @@ std::wstring ProxyUrl(const AppConfig& config) {
   return Utf8ToWide(ProxyTypeToString(config.proxy.type)) + L"://" +
          Utf8ToWide(config.proxy.host) + L":" +
          std::to_wstring(config.proxy.port);
+}
+
+bool SetProxyEnvironmentForChild(const AppConfig& config, std::wstring* error) {
+  const std::wstring proxy = ProxyUrl(config);
+  for (const wchar_t* name : {L"HTTP_PROXY", L"HTTPS_PROXY", L"ALL_PROXY"}) {
+    if (!SetEnvironmentVariableW(name, proxy.c_str())) {
+      if (error) {
+        *error = std::wstring(L"无法设置进程代理变量 ") + name +
+                 L" (Windows " + std::to_wstring(GetLastError()) + L")";
+      }
+      return false;
+    }
+  }
+  return true;
 }
 
 std::wstring BuildAppArguments(const AppConfig& config) {

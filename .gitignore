@@ -1,8 +1,24 @@
 build/
+build-*/
+cmake-build-*/
 out/
 dist/
 .qa/
 .vs/
+/CMakeUserPresets.json
+/CMakeCache.txt
+/CMakeFiles/
+/Testing/
+/config.json
+/logs/
+
+# Local environment files; example files may be shared.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build and operating system artifacts
 *.user
 *.obj
 *.pdb
@@ -11,3 +27,6 @@ dist/
 *.dll
 *.lib
 *.exp
+.DS_Store
+Thumbs.db
+Desktop.ini

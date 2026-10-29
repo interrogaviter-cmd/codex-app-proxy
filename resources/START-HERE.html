@@ -365,15 +365,21 @@
     function validate(config) {
       if (!config.proxy || !['http', 'socks5'].includes(config.proxy.type)) return '连接方式必须是 HTTP 或 SOCKS5。';
       if (!config.proxy.host) return '代理地址不能为空。';
+      if (!/^[A-Za-z0-9._:[\]%-]+$/.test(config.proxy.host)) return '代理地址包含不支持的字符，请使用 IP 地址或 ASCII 域名。';
       if (!Number.isInteger(config.proxy.port) || config.proxy.port < 1 || config.proxy.port > 65535) return '本地监听端口必须是 1 到 65535。';
       if (!Array.isArray(config.bypass_list) || !config.bypass_list.length) return '本地与内网直连列表至少保留一项。';
+      if (config.bypass_list.some(value => typeof value !== 'string' || !/^[A-Za-z0-9.*_:/\[\]<>%-]+$/.test(value))) return '直连列表包含不支持的字符，请检查每一项。';
       if (config.log_mode !== undefined && !['errors', 'always', 'off'].includes(config.log_mode)) return '日志模式必须是 errors、always 或 off。';
       return '';
     }
+    function powerShellLiteral(value) {
+      return `'${value.replace(/'/g, "''")}'`;
+    }
     function commandFor(config) {
+      if (validate(config)) return '';
       const proxy = `${config.proxy.type}://${config.proxy.host}:${config.proxy.port}`;
-      let result = `& (Join-Path (Get-AppxPackage -Name OpenAI.Codex).InstallLocation "app\\ChatGPT.exe") --proxy-server="${proxy}"`;
-      if (config.bypass_list.length) result += ` --proxy-bypass-list="${config.bypass_list.join(';')}"`;
+      let result = `& (Join-Path (Get-AppxPackage -Name OpenAI.Codex).InstallLocation "app\\ChatGPT.exe") ${powerShellLiteral(`--proxy-server=${proxy}`)}`;
+      if (config.bypass_list.length) result += ` ${powerShellLiteral(`--proxy-bypass-list=${config.bypass_list.join(';')}`)}`;
       if (config.disable_quic) result += ' --disable-quic';
       return result;
     }
@@ -395,6 +401,7 @@
       $('bypassSummary').textContent = `${config.bypass_list.length} 项`;
       $('health').textContent = error || '配置有效';
       $('health').className = error ? 'health bad' : 'health';
+      $('copyCommand').disabled = !!error;
       $('changeNote').textContent = isFactory(config) ? '当前就是出厂配置，无需修改。' : '当前配置已不同于出厂值，可随时恢复。';
       if (!error && !$('status').classList.contains('ok')) {
         $('status').textContent = '当前配置有效。保存时请选择 CodexProxyLauncher.exe 所在文件夹。';
@@ -473,7 +480,12 @@
       event.target.value = '';
     });
     $('copyJson').addEventListener('click', () => copyText(configText(), 'JSON '));
-    $('copyCommand').addEventListener('click', () => copyText(commandFor(currentConfig()), 'PowerShell 命令'));
+    $('copyCommand').addEventListener('click', () => {
+      const config = currentConfig();
+      const error = validate(config);
+      if (error) return showError(error);
+      copyText(commandFor(config), 'PowerShell 命令');
+    });
 
     apply(factoryConfig(), 'v2rayn');
   </script>

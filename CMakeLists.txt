@@ -32,6 +32,10 @@ add_executable(CodexProxyLauncher
   resources/windows/launcher.rc
 )
 target_link_libraries(CodexProxyLauncher PRIVATE codex_proxy_common ole32 shell32 user32)
+if(MINGW)
+  # wmain is the Unicode entry point; static runtime keeps the launcher portable.
+  target_link_options(CodexProxyLauncher PRIVATE -municode -static -static-libgcc -static-libstdc++)
+endif()
 
 if(CODEX_PROXY_BUILD_TESTS)
   enable_testing()

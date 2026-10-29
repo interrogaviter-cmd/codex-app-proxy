@@ -7,10 +7,48 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <windows.h>
 
 using namespace codex_proxy;
 
-int main() {
+namespace {
+
+bool ProxyEnvironmentEquals(const std::wstring& expected) {
+  for (const wchar_t* name : {L"HTTP_PROXY", L"HTTPS_PROXY", L"ALL_PROXY"}) {
+    wchar_t value[512]{};
+    const DWORD size = GetEnvironmentVariableW(name, value, 512);
+    if (size == 0 || size >= 512 || expected != value) return false;
+  }
+  return true;
+}
+
+bool VerifyChildEnvironment(const wchar_t* option) {
+  const std::wstring exe = GetExecutablePath();
+  std::wstring command = L"\"" + exe + L"\" " + option;
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION process{};
+  if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, 0,
+                      nullptr, nullptr, &startup, &process)) return false;
+  const DWORD wait_result = WaitForSingleObject(process.hProcess, 10000);
+  DWORD exit_code = 1;
+  const bool ok = wait_result == WAIT_OBJECT_0 &&
+                  GetExitCodeProcess(process.hProcess, &exit_code) && exit_code == 0;
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+  return ok;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  if (argc == 2 && std::string(argv[1]) == "--check-http") {
+    return ProxyEnvironmentEquals(L"http://127.0.0.1:10808") ? 0 : 1;
+  }
+  if (argc == 2 && std::string(argv[1]) == "--check-socks") {
+    return ProxyEnvironmentEquals(L"socks5://127.0.0.1:1080") ? 0 : 1;
+  }
   AppConfig config = DefaultConfig();
   assert(config.proxy.host == "127.0.0.1");
   assert(config.proxy.port == 10808);
@@ -59,6 +97,13 @@ int main() {
   command = BuildAppCommandLine(L"C:\\ChatGPT.exe", socks);
   assert(command.find(L"--proxy-server=\"socks5://127.0.0.1:1080\"") !=
          std::wstring::npos);
+
+  // Exercise actual Windows process inheritance without starting the desktop app.
+  assert(SetProxyEnvironmentForChild(config, &error));
+  assert(ProxyEnvironmentEquals(L"http://127.0.0.1:10808"));
+  assert(VerifyChildEnvironment(L"--check-http"));
+  assert(SetProxyEnvironmentForChild(socks, &error));
+  assert(VerifyChildEnvironment(L"--check-socks"));
 
   const std::filesystem::path invalid_path =
       std::filesystem::temp_directory_path() / "codex-proxy-invalid-config.json";

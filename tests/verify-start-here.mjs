@@ -27,6 +27,20 @@ const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map(match =
 if (scripts.length !== 1) throw new Error(`Expected one inline script, found ${scripts.length}`);
 new Function(scripts[0]);
 
+// Exercise the actual command generator without loading the browser UI.
+const generatorEnd = scripts[0].indexOf("    $('preset').addEventListener");
+if (generatorEnd < 0) throw new Error('Could not locate guide command generator');
+const { commandFor, validate } = new Function(`${scripts[0].slice(0, generatorEnd)}\nreturn { commandFor, validate };`)();
+const safeConfig = { proxy: { type: 'http', host: '127.0.0.1', port: 10808 }, bypass_list: ['localhost', '<-loopback>', '10.*', '[::1]', 'https://example.com'], disable_quic: true };
+const expectedCommand = `& (Join-Path (Get-AppxPackage -Name OpenAI.Codex).InstallLocation "app\\ChatGPT.exe") '--proxy-server=http://127.0.0.1:10808' '--proxy-bypass-list=localhost;<-loopback>;10.*;[::1];https://example.com' --disable-quic`;
+if (validate(safeConfig) || commandFor(safeConfig) !== expectedCommand) throw new Error('Safe PowerShell command changed unexpectedly');
+for (const attack of ["localhost'", 'localhost"', 'localhost’$(Write-Output INJECTED)', '$(Write-Output INJECTED)', 'localhost;Write-Output INJECTED', 'localhost\nWrite-Output INJECTED']) {
+  for (const testCase of [{ ...safeConfig, proxy: { ...safeConfig.proxy, host: attack } }, { ...safeConfig, bypass_list: [attack] }]) {
+    if (!validate(testCase) || commandFor(testCase)) throw new Error('Unsafe input was accepted for a PowerShell command');
+  }
+}
+if (process.env.CODEX_PROXY_PRINT_TEST_COMMAND === '1') console.log(expectedCommand);
+
 if (config.proxy.type !== 'http' || config.proxy.host !== '127.0.0.1' || config.proxy.port !== 10808) {
   throw new Error('default_config.json no longer matches the documented factory proxy');
 }

@@ -11,7 +11,11 @@
 #include <windows.h>
 #include <appmodel.h>
 #include <objbase.h>
+#ifdef __MINGW32__
+#include <shobjidl.h>
+#else
 #include <shobjidl_core.h>
+#endif
 #include <shellapi.h>
 
 using namespace codex_proxy;
@@ -198,17 +202,11 @@ int StartAppWithProxy(const std::wstring& app_path, const AppConfig& config) {
   const std::wstring arguments = BuildAppArguments(config);
   Logger::Instance().Info(L"Using app path: " + app_path);
 
-  DWORD activated_pid = 0;
-  std::wstring activation_error;
-  if (TryActivatePackagedAppWithProxy(app_path, arguments, &activated_pid,
-                                      &activation_error)) {
-    Logger::Instance().Info(L"Activated packaged app PID " +
-                            std::to_wstring(activated_pid));
-    std::wcout << L"ChatGPT/Codex launched with app proxy.\n";
-    return 0;
+  std::wstring environment_error;
+  if (!SetProxyEnvironmentForChild(config, &environment_error)) {
+    return ShowError(L"E_PROXY_ENVIRONMENT", L"无法设置进程代理环境",
+                     environment_error, 10);
   }
-  Logger::Instance().Info(L"Packaged activation unavailable, falling back to "
-                          L"CreateProcessW: " + activation_error);
 
   std::wstring command = BuildAppCommandLine(app_path, config);
   Logger::Instance().Info(L"Starting app with command: " + command);
@@ -216,12 +214,27 @@ int StartAppWithProxy(const std::wstring& app_path, const AppConfig& config) {
                                 FALSE, 0, nullptr, GetDirName(app_path).c_str(),
                                 &si, &pi);
   if (!created) {
-    const std::wstring detail = FormatLastError(L"CreateProcessW failed", GetLastError());
-    return ShowError(
-        L"E_LAUNCH_FAILED", L"无法启动 ChatGPT/Codex",
-        L"Windows 未能启动桌面 App。请确认商店版 App 能够正常打开，"
-        L"然后重试。\n\n系统信息：" + detail,
-        10);
+    const std::wstring process_error = FormatLastError(L"CreateProcessW failed", GetLastError());
+    Logger::Instance().Warn(L"Direct launch failed; trying packaged activation: " + process_error);
+    DWORD activated_pid = 0;
+    std::wstring activation_error;
+    if (!TryActivatePackagedAppWithProxy(app_path, arguments, &activated_pid,
+                                         &activation_error)) {
+      return ShowError(
+          L"E_LAUNCH_FAILED", L"无法启动 ChatGPT/Codex",
+          L"Windows 未能启动桌面 App。请确认商店版 App 能够正常打开，"
+          L"然后重试。\n\n系统信息：" + process_error + L"\n" + activation_error,
+          10);
+    }
+    const std::wstring warning =
+        L"应用已通过 Windows 应用包激活，但这种启动方式不能保证后台进程继承代理设置。"
+        L"桌面界面或后台连接可能没有使用代理，请检查实际连接。";
+    Logger::Instance().Warn(L"Packaged activation PID " + std::to_wstring(activated_pid) +
+                            L" cannot guarantee inherited proxy environment.");
+    std::wcerr << warning << L"\n";
+    MessageBoxW(nullptr, warning.c_str(), L"ChatGPT/Codex 代理启动器",
+                MB_OK | MB_ICONWARNING);
+    return 0;
   }
 
   Logger::Instance().Info(L"Started app PID " + std::to_wstring(pi.dwProcessId));

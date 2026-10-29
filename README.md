@@ -1,195 +1,85 @@
-# ChatGPT/Codex App Proxy Launcher
+# Codex App Proxy Launcher
 
-[![Windows Build](https://github.com/leisair/codex-app-proxy/actions/workflows/windows-build.yml/badge.svg)](https://github.com/leisair/codex-app-proxy/actions/workflows/windows-build.yml)
-[![Latest Release](https://img.shields.io/github/v/release/leisair/codex-app-proxy?label=latest)](https://github.com/leisair/codex-app-proxy/releases/latest)
-[![Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078D4)](#适用范围)
+Windows 便携启动器：为 Microsoft Store 版 ChatGPT/Codex 桌面应用配置已有的本机 HTTP/mixed 或 SOCKS5 代理，不需要开启 Windows 系统代理或 TUN。
 
-让 Microsoft Store 版 ChatGPT/Codex **只使用你指定的本地代理**，无需开启 Windows 系统代理、TUN 模式或额外后台服务。
+本仓库 fork 自 [leisair/codex-app-proxy](https://github.com/leisair/codex-app-proxy)，感谢原项目。此 Fork 在原项目基础上支持向 Codex 后台进程传递代理设置，修复配置向导生成 PowerShell 命令时的注入问题，并增加 MinGW GCC 构建支持。具体变更见 [CHANGELOG.md](CHANGELOG.md)。
 
-*A portable Windows launcher for the Microsoft Store ChatGPT/Codex desktop app. It applies a per-app HTTP/SOCKS5 proxy without changing the Windows system proxy, enabling TUN, or running a background service.*
+![START-HERE 离线配置向导](docs/images/start-here.png)
 
-> [下载最新版](https://github.com/leisair/codex-app-proxy/releases/latest) · [版本记录](CHANGELOG.md) · 下载 `windows-x64.zip`，解压后打开 `START-HERE.html`
+## 使用前提
 
-![START-HERE 离线配置向导](https://raw.githubusercontent.com/leisair/codex-app-proxy/main/docs/images/start-here.png)
+- Windows 10/11 x64，并已安装 Microsoft Store 版 ChatGPT/Codex 桌面应用。
+- 已有并启动 V2RayN、Clash Verge、Mihomo 或其他代理软件，确认其本地 HTTP/mixed 或 SOCKS5 监听地址和端口。
+- 本项目只负责启动应用，不提供代理节点、订阅或网络服务。独立启动的 Codex CLI 不受这个启动器控制。
 
-## 适用范围
+默认配置为 HTTP `127.0.0.1:10808`，通常适用于 V2RayN 的 mixed 端口。其他软件请以实际监听端口为准：Clash Verge Rev 常见 `7897`，Clash/Mihomo 常见 `7890`，通用 SOCKS5 常见 `1080`。
 
-| 你的情况 | 是否适合 |
+## 使用
+
+从源码构建后，将以下文件放在同一个可写文件夹中：
+
+| 文件 | 用途 |
 | --- | --- |
-| Windows 10/11 x64，使用 Microsoft Store 版 ChatGPT/Codex | 是 |
-| 已经有 V2RayN、Clash Verge、Mihomo 或其他本地代理 | 是 |
-| 不希望开启 Windows 系统代理或 TUN | 是 |
-| 希望本项目提供代理节点、订阅或网络服务 | 否，本项目只是启动器 |
-| macOS、Linux、网页版 ChatGPT、其他任意程序 | 暂不支持 |
+| `CodexProxyLauncher.exe` | 启动桌面应用 |
+| `START-HERE.html` | 离线配置向导 |
+| `config.json` | 实际生效的代理配置 |
+| `README.md` | 使用说明 |
 
-本项目不会启动或配置你的代理软件，也不提供节点。开始前请确保本地代理本身可以正常使用。
+1. 启动本机代理软件。打开 `START-HERE.html`，按代理软件的实际地址、类型和端口生成 `config.json`，保存到启动器所在目录。
+2. 完全退出已运行的 ChatGPT/Codex 桌面应用，包括托盘中的后台进程。已有进程可能不接收新的启动参数。
+3. 双击 `CodexProxyLauncher.exe`，然后发送消息确认连接正常。
 
-## 三步开始
+如果直接启动失败，程序可能回退到 Windows 应用包激活，并提示这种方式不能保证后台进程继承代理。看到提示时，请检查实际通讯情况。日志默认只在启动出错时写入同目录 `logs/`；分享日志前请检查是否包含本机路径或其他敏感信息。
 
-1. 从 [Releases](https://github.com/leisair/codex-app-proxy/releases/latest) 下载最新版 ZIP，并解压一次。
-2. 打开 `START-HERE.html`。V2RayN 默认 mixed `10808` 用户无需修改；其他用户选择预设并保存。
-3. 启动代理软件，完全退出已有 ChatGPT/Codex，然后双击 `CodexProxyLauncher.exe`。
+## 工作原理与范围
 
-不需要开启系统代理，不需要开启 TUN。
+启动器读取同目录 `config.json`，检查代理端口和已运行的桌面进程，找到应用后：
 
-## English summary
+- 给桌面界面传入 Chromium 的 `--proxy-server`、`--proxy-bypass-list` 参数，并按配置决定是否传入 `--disable-quic`。
+- 优先直接启动应用，并在启动器进程中设置 `HTTP_PROXY`、`HTTPS_PROXY` 和 `ALL_PROXY`，供桌面应用及其后台子进程继承；不会写入用户或系统环境变量。
+- 如果只能通过 Windows 应用包激活，会显示后台代理可能无法继承的提示。
 
-This project is a Windows x64 **ChatGPT/Codex desktop app proxy launcher** for the Microsoft Store app. It starts the app with Chromium per-app proxy flags, supports local HTTP/mixed and SOCKS5 listeners, and leaves Windows system proxy settings unchanged. It is a portable utility, not a VPN, proxy provider, subscription manager, or background service.
+启动器不会设置 Windows 系统代理，也不创建 TUN 网卡或额外常驻服务。TCP 端口可连接只说明该端口有监听，不能证明节点、认证、WebSocket 或所有应用流量一定正常。默认直连列表包含回环和部分私网地址；本工具不是强制全流量代理或断网保护工具。
 
-## 它实际做什么
+配置向导会校验代理地址和直连列表，并对生成的 PowerShell 命令使用安全引用。仍应只使用可信配置，并在复制命令前检查内容。
 
-```text
-同目录 config.json
-        ↓
-检查配置、代理端口、已有 App 进程
-        ↓
-找到 Microsoft Store 包里的 ChatGPT.exe
-        ↓
-添加 --proxy-server / --proxy-bypass-list / --disable-quic
-        ↓
-启动 ChatGPT/Codex，然后启动器立即退出
-```
+## 从源码构建
 
-它不会：
+需要 Windows x64、CMake 3.20 或更新版本，以及以下任一 C++ 工具链：
 
-- 注入 DLL 或 Hook 进程。
-- 修改 Windows 系统代理。
-- 创建 TUN 网卡或改写系统路由。
-- 读取节点、订阅、账号或对话内容。
-- 上传配置、代理流量或诊断日志。
-- 常驻托盘、后台服务或额外代理进程。
+- **Visual Studio 2022**：安装包含 C++ 桌面开发工具和 Windows SDK 的 Build Tools。
+- **MinGW-w64 GCC 和 Ninja**：需要支持 C++17 的 GCC/G++、Ninja、`ar`、`ranlib` 和 `windres`。本项目已在 Conda GCC 14.4 环境验证；工具链及 Windows 运行库需要相互兼容。
 
-## 常见代理预设
+Node.js 18 或更新版本用于配置向导校验。构建程序本身不需要下载代理节点。
 
-`START-HERE.html` 提供以下起始值。端口可以被用户修改，请以代理软件当前显示的本地监听端口为准。
-
-| 软件/类型 | 连接方式 | 常见本地地址 | 备注 |
-| --- | --- | --- | --- |
-| V2RayN | HTTP / mixed | `127.0.0.1:10808` | 项目出厂配置 |
-| Clash Verge Rev | HTTP / mixed | `127.0.0.1:7897` | 以软件界面为准 |
-| Clash / Mihomo | HTTP / mixed | `127.0.0.1:7890` | 不同配置可能不同 |
-| 通用 SOCKS5 | SOCKS5 | `127.0.0.1:1080` | 只在使用 SOCKS5 入口时选择 |
-
-“本地端口”不是节点服务器端口、订阅端口或远程 `443`。
-
-## 发布包里的文件
-
-ZIP 根目录直接包含以下文件，没有第二层 ZIP：
-
-| 文件 | 用途 | 普通用户是否需要打开 |
-| --- | --- | --- |
-| `START-HERE.html` | 离线使用说明、配置预设、字段解释和排错 | 首次使用建议打开 |
-| `CodexProxyLauncher.exe` | 检查环境并启动 ChatGPT/Codex | 每次通过代理启动时双击 |
-| `config.json` | 启动器实际读取的配置 | 通常通过向导生成，不必手改 |
-| `README.md` | 本页面的离线副本 | 按需查看 |
-
-运行后可能在同目录生成 `logs/`：默认仅在启动出错时创建，具体由 `log_mode` 控制。配置和日志都保存在这个便携文件夹内；项目不会创建 `%USERPROFILE%\.codex-proxy`。
-
-## 配置项说明
-
-| 配置项 | 出厂值 | 作用 | 建议 |
-| --- | --- | --- | --- |
-| `proxy.type` | `http` | ChatGPT/Codex 连接本地代理的方式 | mixed 端口通常保持 `http` |
-| `proxy.host` | `127.0.0.1` | 本地代理所在地址；该值表示当前电脑 | 普通用户不要修改 |
-| `proxy.port` | `10808` | 代理软件的本地/mixed 监听端口 | 必须与代理软件界面一致 |
-| `disable_quic` | `true` | 添加 `--disable-quic`，让 App 优先使用 TCP | 建议保持开启 |
-| `log_mode` | `errors` | 控制诊断日志：`errors` / `always` / `off` | 默认仅错误时记录，可在向导高级设置中修改 |
-| `bypass_list` | 回环地址与常见私网 | 让本地服务和内网地址不经过代理 | 不熟悉 Chromium 语法时保持默认 |
-
-向导会始终显示当前值、出厂值和恢复入口。高级用户可以展开“专家工具”检查完整 JSON 与等价 PowerShell 命令。
-
-## 常见问题
-
-### 为什么必须先退出已有 ChatGPT/Codex？
-
-Chromium 启动参数通常只在第一个 App 进程启动时读取。如果桌面 App 已在后台运行，再次启动可能只会唤醒旧进程，新的代理参数不会生效。
-
-终端中独立运行的 Codex CLI 不在桌面 App 目录内，不会被本项目关闭或代理。
-
-### “无法连接本地代理”是什么意思？
-
-启动器无法连接 `config.json` 中的地址和端口。依次检查：
-
-1. 代理软件是否正在运行且节点可用。
-2. 配置中的端口是否等于软件界面的本地/mixed 端口。
-3. 新的 `config.json` 是否与启动器位于同一目录。
-
-### 为什么默认禁用 QUIC？
-
-QUIC 使用 UDP，而常见本地 HTTP/mixed/SOCKS5 代理主要承载 TCP。禁用 QUIC 后，App 更稳定地使用可由 `--proxy-server` 接管的 TCP 连接，减少 UDP 绕过代理或连接失败的可能。
-
-### Windows 提示“已保护你的电脑”怎么办？
-
-当前发布的 EXE 尚未购买代码签名证书，Windows SmartScreen 可能提示未知发布者。这不代表文件一定有问题，也不构成安全保证。请只从本仓库的 [Releases](https://github.com/leisair/codex-app-proxy/releases) 下载，并核对 Release 提供的 SHA-256；对二进制不放心时，请审查源码并自行构建。
-
-### 在哪里看日志？
-
-```text
-logs\proxy-YYYYMMDD.log
-```
-
-出厂模式 `errors` 下，正常启动不会创建 `logs` 目录；若启动失败，启动器会把此前缓存在内存中的本次启动上下文和错误一起写入上述文件。`always` 从启动开始持续记录，适合反复排错；`off` 完全不写日志，错误弹窗会显示“日志已关闭”。旧配置缺少 `log_mode` 时按 `errors` 处理。
-
-日志可能包含配置路径、目标 App 路径、代理地址和错误码，不记录账号、对话内容或代理流量。分享前仍应自行检查其中是否含不希望公开的信息。
-
-<details>
-<summary><strong>高级用户：默认配置与手动等价命令</strong></summary>
-
-默认配置位于启动器同目录：
-
-```json
-{
-  "_comment": "ChatGPT/Codex Proxy Launcher configuration",
-  "_version": 1,
-  "proxy": {
-    "type": "http",
-    "host": "127.0.0.1",
-    "port": 10808
-  },
-  "bypass_list": ["<-loopback>", "localhost", "127.0.0.1", "::1", "10.*", "172.16.*", "192.168.*"],
-  "disable_quic": true,
-  "log_mode": "errors"
-}
-```
-
-默认配置的等价命令：
-
-```powershell
-& (Join-Path (Get-AppxPackage -Name OpenAI.Codex).InstallLocation "app\ChatGPT.exe") --proxy-server="http://127.0.0.1:10808" --proxy-bypass-list="<-loopback>;localhost;127.0.0.1;::1;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*" --disable-quic
-```
-
-</details>
-
-<details>
-<summary><strong>开发者：本地构建与测试</strong></summary>
-
-需要 Windows x64、Visual Studio 2022 C++ Build Tools、CMake 3.20+；运行完整向导校验还需要 Node.js 18+。应用图标源文件位于 `assets/branding/codex-logo.svg`，构建使用的多尺寸 ICO 与资源清单位于 `resources/windows/`；ICO 会嵌入 EXE，不会作为独立文件进入发布包。
-
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
-```
-
-或者运行：
+在源码仓库根目录的 PowerShell 中，使用 Visual Studio 2022：
 
 ```powershell
 .\build.ps1
 ```
 
-普通用户请下载 Release，不需要安装编译环境，也不需要进入 Actions 页面。
+使用 Conda MinGW GCC 时，将下面路径替换为自己的环境目录：
 
-</details>
+```powershell
+.\build.ps1 -Toolchain MinGW -GccBin 'D:\app_data\miniforge\envs\gcc\Library\bin'
+```
 
-## 支持与反馈
+构建目录统一位于 `build/`，按工具链和配置区分；便携输出位于 `out/` 对应的子目录。脚本默认运行 Debug C++ 测试和向导校验。完整步骤和手动 CMake 命令见 [MinGW 构建说明](docs/BUILD-MINGW.md)。
 
-发现可复现问题请使用 [Issue 模板](https://github.com/leisair/codex-app-proxy/issues/new/choose)；安全漏洞请阅读 [SECURITY.md](SECURITY.md)，不要公开粘贴敏感信息。开发者可参考 [CONTRIBUTING.md](CONTRIBUTING.md)。
+从已有输出目录复制文件时，请保留或备份已有的 `config.json`，避免覆盖个人代理设置。CMake 缓存包含绝对路径，移动源码或更换工具链后需要重新配置。
 
-提交 Issue 时请附上：
+## 常见问题
 
-- Windows 版本。
-- ChatGPT/Codex App 版本。
-- 代理软件名称和本地监听端口。
-- 最新日志中与错误相关的几行；先检查其中是否含不希望公开的信息。
+**提示无法连接本地代理：**确认代理软件正在运行，配置的是本机 HTTP/mixed 或 SOCKS5 监听端口，而不是远程节点端口。
 
-项目只支持 Windows x64 与当前 Microsoft Store 版 ChatGPT/Codex。
+**能看到登录状态但发送消息超时：**确认已完全退出旧桌面进程并用此启动器重新打开；检查后台代理是否继承、代理节点是否可用，以及是否出现应用包激活回退提示。
+
+**Windows 提示未知发布者：**自行构建的 EXE 没有代码签名，可能触发 SmartScreen；来源与文件完整性需要自行核实。仓库源码不代表已经提供了可下载的 Release。
+
+## 开发与安全反馈
+
+提交问题前，请提供 Windows、桌面应用和代理软件版本，以及脱敏后的相关错误信息。安全问题的处理方式见 [SECURITY.md](SECURITY.md)，变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+---
+
+A Windows x64 launcher for the Microsoft Store ChatGPT/Codex app. This fork configures the desktop UI and its directly launched backend to use an existing local proxy; it does not provide a VPN, proxy nodes, or a guarantee that every connection is proxied.

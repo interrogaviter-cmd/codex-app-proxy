@@ -14,7 +14,7 @@ namespace codex_proxy {
 namespace {
 
 std::string ReadFileUtf8(const std::wstring& path) {
-  std::ifstream file(path, std::ios::binary);
+  std::ifstream file(std::filesystem::path(path), std::ios::binary);
   if (!file) {
     return {};
   }
@@ -29,7 +29,7 @@ bool WriteFileUtf8(const std::wstring& path, const std::string& content) {
   if (ec) {
     return false;
   }
-  std::ofstream file(path, std::ios::binary | std::ios::trunc);
+  std::ofstream file(std::filesystem::path(path), std::ios::binary | std::ios::trunc);
   if (!file) {
     return false;
   }

@@ -10,11 +10,13 @@
 
 ## 本地验证
 
-需要 Visual Studio 2022 C++ Build Tools、CMake 3.20+ 和 Node.js 18+：
+需要 CMake 3.20+、Node.js 18+，以及 Visual Studio 2022 C++ Build Tools 或支持 C++17 的 MinGW GCC/Ninja。默认使用 Visual Studio：
 
 ```powershell
 .\build.ps1
 ```
+
+使用 MinGW 时，按 [MinGW 构建说明](docs/BUILD-MINGW.md) 指定 `-Toolchain MinGW`；构建目录统一位于 `build/`，便携输出位于 `out/`。
 
 提交前至少运行：
 
