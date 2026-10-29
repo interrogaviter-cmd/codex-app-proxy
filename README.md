@@ -64,7 +64,7 @@ Node.js 18 或更新版本用于配置向导校验。构建程序本身不需要
 .\build.ps1 -Toolchain MinGW -GccBin 'D:\app_data\miniforge\envs\gcc\Library\bin'
 ```
 
-构建目录统一位于 `build/`，按工具链和配置区分；便携输出位于 `out/` 对应的子目录。脚本默认运行 Debug C++ 测试和向导校验。完整步骤和手动 CMake 命令见 [MinGW 构建说明](docs/BUILD-MINGW.md)。
+构建目录统一位于仓库根目录的 `build/`，按工具链和配置区分；便携输出位于 `out/` 对应的子目录。本机保留的便携包及历史产物可放在 `local-artifacts/`；这些目录和本地项目日志 `.agent-journal/` 均不会提交到 Git。脚本默认运行 Debug C++ 测试和向导校验。完整步骤和手动 CMake 命令见 [MinGW 构建说明](docs/BUILD-MINGW.md)。
 
 从已有输出目录复制文件时，请保留或备份已有的 `config.json`，避免覆盖个人代理设置。CMake 缓存包含绝对路径，移动源码或更换工具链后需要重新配置。
 

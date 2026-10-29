@@ -5,6 +5,9 @@ out/
 dist/
 .qa/
 .vs/
+/local-artifacts/
+/.agent-journal/
+/conda-pkgs/
 /CMakeUserPresets.json
 /CMakeCache.txt
 /CMakeFiles/
